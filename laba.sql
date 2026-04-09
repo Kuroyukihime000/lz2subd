@@ -1,0 +1,406 @@
+    CREATE DATABASE labaposubdcringe;
+    GO
+
+    USE labaposubdcringe;
+    GO
+
+    ------------------------------------------------------------
+    -- TABLES
+    ------------------------------------------------------------
+
+    CREATE TABLE faculty(
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        faculty_name NVARCHAR(50)
+    );
+
+    CREATE TABLE form(
+        id INT IDENTITY(1,1) PRIMARY KEY, 
+        form_name NVARCHAR(30)
+    );
+
+    CREATE TABLE stud(
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        last_name NVARCHAR(30),
+        f_name NVARCHAR(30),
+        s_name NVARCHAR(30),
+        br_date DATE,
+        in_date DATE,
+        exm INT 
+    );
+
+    CREATE TABLE teach(
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        last_name NVARCHAR(30),
+        f_name NVARCHAR(30),
+        s_name NVARCHAR(30),
+        br_date DATE,
+        start_work_date DATE
+    );
+
+    CREATE TABLE subj(
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        subj NVARCHAR(100),
+        [hours] INT
+    );
+
+    CREATE TABLE [hours](
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        cours INT,
+        faculty_id INT FOREIGN KEY REFERENCES faculty(id),
+        form_id INT FOREIGN KEY REFERENCES form(id),   
+        all_h INT,
+        inclass_h INT
+    );
+
+    CREATE TABLE process(
+        stud_id INT FOREIGN KEY REFERENCES stud(id),   
+        hours_id INT FOREIGN KEY REFERENCES [hours](id),
+        PRIMARY KEY (stud_id, hours_id) 
+    );
+
+    CREATE TABLE work(
+        teach_id INT FOREIGN KEY REFERENCES teach(id),
+        subj_id INT FOREIGN KEY REFERENCES subj(id),
+        hours_id INT FOREIGN KEY REFERENCES [hours](id),
+        PRIMARY KEY (teach_id, subj_id, hours_id)
+    );
+
+    ------------------------------------------------------------
+    --SELECT 1–15
+    ------------------------------------------------------------
+
+    --1
+    SELECT f.faculty_name,
+           AVG(CAST(s.exm AS FLOAT)) AS AvgeExam
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    JOIN form fm ON h.form_id = fm.id
+    JOIN faculty f ON h.faculty_id = f.id
+    WHERE fm.form_name = N'заочная'
+    GROUP BY f.faculty_name;
+
+    --2
+    SELECT f.faculty_name AS Факультет,
+           h.cours AS Курс,
+           MAX(s.exm) AS Макс_средний_балл
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    JOIN faculty f ON h.faculty_id = f.id
+    GROUP BY f.faculty_name, h.cours
+    ORDER BY f.faculty_name, h.cours;
+
+    --3
+    SELECT f.faculty_name AS Факультет,
+           AVG(CAST(s.exm AS FLOAT)) AS Общий_средний_балл
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    JOIN faculty f ON h.faculty_id = f.id
+    GROUP BY f.faculty_name
+    HAVING AVG(CAST(s.exm AS FLOAT)) > 7;
+
+    --4
+    SELECT h.cours AS Курс,
+           f.faculty_name AS Факультет,
+           fm.form_name AS Форма_обучения,
+           AVG(CAST(s.exm AS FLOAT)) AS Средний_балл
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    JOIN faculty f ON h.faculty_id = f.id
+    JOIN form fm ON h.form_id = fm.id
+    GROUP BY h.cours, f.faculty_name, fm.form_name
+    HAVING AVG(CAST(s.exm AS FLOAT)) > 7.5;
+
+    --5
+    SELECT f.faculty_name AS Факультет,
+           h.cours AS Курс,
+           MIN(s.exm) AS Мин_средний_балл
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    JOIN faculty f ON h.faculty_id = f.id
+    GROUP BY f.faculty_name, h.cours
+    ORDER BY f.faculty_name, h.cours;
+
+    --6
+    SELECT f.faculty_name AS Факультет,
+           fm.form_name AS Форма_обучения,
+           MIN(s.exm) AS Мин_средний_балл
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    JOIN faculty f ON h.faculty_id = f.id
+    JOIN form fm ON h.form_id = fm.id
+    GROUP BY f.faculty_name, fm.form_name
+    HAVING MIN(s.exm) > 6
+    ORDER BY f.faculty_name, fm.form_name;
+
+    --7
+    SELECT (h.all_h - h.inclass_h) AS Самостоятельная_подготовка_часов
+    FROM [hours] h
+    JOIN faculty f ON h.faculty_id = f.id
+    JOIN form fm ON h.form_id = fm.id
+    WHERE f.faculty_name = N'ФПК'
+      AND h.cours = 3
+      AND fm.form_name = N'Заочная';
+
+    --8
+    SELECT f.faculty_name AS Факультет,
+           h.cours AS Курс,
+           fm.form_name AS Форма_обучения,
+           (h.all_h - h.inclass_h) AS Самостоятельные_часы
+    FROM [hours] h
+    JOIN faculty f ON h.faculty_id = f.id
+    JOIN form fm ON h.form_id = fm.id
+    WHERE (h.all_h - h.inclass_h) = 150
+    ORDER BY f.faculty_name, h.cours, fm.form_name;
+
+    --9
+    SELECT t.last_name AS Фамилия,
+           t.f_name AS Имя,
+           t.s_name AS Отчество,
+           COUNT(w.subj_id) AS Количество_предметов
+    FROM teach t
+    JOIN work w ON t.id = w.teach_id
+    GROUP BY t.id, t.last_name, t.f_name, t.s_name
+    ORDER BY Количество_предметов DESC, t.last_name;
+
+    --10
+    SELECT f.faculty_name AS Факультет,
+           COUNT(DISTINCT w.teach_id) AS Количество_преподавателей
+    FROM faculty f
+    JOIN [hours] h ON f.id = h.faculty_id
+    JOIN work w ON h.id = w.hours_id
+    GROUP BY f.faculty_name;
+
+    --11
+    SELECT s.subj AS Предмет,
+           MAX(s.[hours]) AS Максимальное_количество_часов
+    FROM subj s
+    GROUP BY s.subj
+    ORDER BY s.subj;
+
+    --12
+    SELECT t.last_name AS Фамилия,
+           t.f_name AS Имя
+    FROM teach t
+    JOIN work w ON t.id = w.teach_id
+    GROUP BY t.id, t.last_name, t.f_name
+    HAVING COUNT(DISTINCT w.subj_id) > 1;
+
+    --13
+    SELECT f.faculty_name AS Факультет,
+           h.cours AS Курс,
+           SUM(h.all_h) AS Всего_часов
+    FROM faculty f
+    JOIN [hours] h ON f.id = h.faculty_id
+    GROUP BY f.faculty_name, h.cours;
+
+    --14
+    SELECT f.faculty_name AS Факультет,
+           COUNT(DISTINCT w.subj_id) AS Количество_предметов
+    FROM faculty f
+    JOIN [hours] h ON f.id = h.faculty_id
+    JOIN work w ON h.id = w.hours_id
+    JOIN teach t ON w.teach_id = t.id
+    WHERE t.s_name IS NULL OR t.s_name = ''
+    GROUP BY f.faculty_name
+    ORDER BY f.faculty_name;
+
+    --15
+    SELECT f.faculty_name AS Факультет,
+           COUNT(DISTINCT w.subj_id) AS Количество_предметов
+    FROM faculty f
+    JOIN [hours] h ON f.id = h.faculty_id
+    JOIN work w ON h.id = w.hours_id
+    JOIN teach t ON w.teach_id = t.id
+    WHERE t.s_name IS NULL OR t.s_name = ''
+    GROUP BY f.faculty_name;
+
+    ------------------------------------------------------------
+    -- JOIN 1–16
+    ------------------------------------------------------------
+
+    --1
+    SELECT faculty.faculty_name, [hours].cours
+    FROM [hours]
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE DATEDIFF(DAY, stud.br_date, GETDATE()) <= 37 * 365.25
+    GROUP BY faculty.faculty_name, [hours].cours;
+
+    --2
+    SELECT faculty.faculty_name,
+           COUNT(stud.id) AS student_count
+    FROM process
+    JOIN stud ON stud.id = process.stud_id
+    JOIN [hours] ON [hours].id = process.hours_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    GROUP BY faculty.faculty_name;
+
+
+    --3
+    SELECT form.form_name,
+           COUNT(stud.id) AS student_count
+    FROM process
+    JOIN stud ON stud.id = process.stud_id
+    JOIN [hours] ON [hours].id = process.hours_id
+    JOIN form ON form.id = [hours].form_id
+    GROUP BY form.form_name;
+
+
+    --4
+    SELECT faculty.faculty_name,
+           AVG(
+               DATEDIFF(DAY, stud.br_date, DATEFROMPARTS(YEAR(GETDATE()), 12, 31)) / 365.25
+           ) AS avg_age
+    FROM process
+    JOIN stud ON stud.id = process.stud_id
+    JOIN [hours] ON [hours].id = process.hours_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    GROUP BY faculty.faculty_name;
+
+
+    --5
+    SELECT stud.in_date, faculty.faculty_name, [hours].cours, form.form_name
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE stud.s_name IS NULL;
+
+    --6
+    SELECT TOP (1) faculty.faculty_name,
+           COUNT(stud.id) AS students
+    FROM [hours]
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE YEAR(stud.in_date) = 2015
+    GROUP BY faculty.faculty_name
+    ORDER BY students DESC;
+
+    --7
+    SELECT faculty.faculty_name, form.form_name, COUNT(stud.id) as number_of_students
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE YEAR(stud.in_date) = 2014
+    GROUP BY faculty.faculty_name, form.form_name;
+
+    --8
+    SELECT faculty.faculty_name
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    WHERE form.form_name = N'Заочная'
+    GROUP BY faculty.faculty_name;
+
+    --9
+    SELECT faculty.faculty_name, form.form_name, [hours].cours
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    GROUP BY faculty.faculty_name, form.form_name, [hours].cours;
+
+    --10
+    SELECT faculty.faculty_name, form.form_name, COUNT(stud.id) as number_of_students
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    GROUP BY faculty.faculty_name, form.form_name;
+
+    --11
+    SELECT COUNT(stud.id) as number_of_students, faculty.faculty_name, form.form_name, [hours].cours
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE [hours].cours IN (1, 3)
+    GROUP BY faculty.faculty_name, form.form_name, [hours].cours;
+
+    --12
+    SELECT COUNT(stud.id) as number_of_foreigners, faculty.faculty_name, [hours].cours
+    FROM [hours]
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE stud.s_name IS NULL
+    GROUP BY faculty.faculty_name, [hours].cours;
+
+    --13
+    SELECT COUNT(stud.id) as number_of_students, faculty.faculty_name, [hours].cours
+    FROM [hours]
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE stud.exm >= 7.5
+    GROUP BY faculty.faculty_name, [hours].cours;
+
+    --14
+    SELECT faculty.faculty_name, form.form_name, COUNT(stud.id) as number_of_students
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE DATEDIFF(DAY, stud.br_date, GETDATE()) >= 45 * 365.25
+    GROUP BY faculty.faculty_name, form.form_name;
+
+    --15
+    SELECT faculty.faculty_name, form.form_name, [hours].cours, COUNT(stud.id) as number_of_students
+    FROM [hours]
+    JOIN form ON form.id = [hours].form_id
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE DATEDIFF(DAY, stud.br_date, GETDATE()) <= 27 * 365.25
+    GROUP BY faculty.faculty_name, form.form_name, [hours].cours;
+
+    --16
+    SELECT faculty.faculty_name, COUNT(stud.id) as number_of_students
+    FROM [hours]
+    JOIN faculty ON faculty.id = [hours].faculty_id
+    JOIN process ON process.hours_id = [hours].id
+    JOIN stud ON stud.id = process.stud_id
+    WHERE stud.last_name LIKE N'С%'
+    GROUP BY faculty.faculty_name, stud.last_name;
+
+    ------------------------------------------------------------
+    -- ПОДЗАПРОС 1–8
+    ------------------------------------------------------------
+
+    --1
+    SELECT s.id, s.last_name, s.f_name, s.s_name from stud s
+    WHERE s.exm < (SELECT MAX(exm) * 0.8 FROM stud)
+
+    --2
+    SELECT s.id, s.last_name, s.f_name, s.s_name from stud s
+    WHERE s.exm = (SELECT MAX(exm) FROM stud)
+
+    --3
+    SELECT s.last_name
+    FROM stud s
+    JOIN process p ON s.id = p.stud_id
+    JOIN [hours] h ON p.hours_id = h.id
+    WHERE h.faculty_id = (
+            SELECT TOP 1 h2.faculty_id
+            FROM process p2
+            JOIN [hours] h2 ON p2.hours_id = h2.id
+            GROUP BY h2.faculty_id
+            ORDER BY COUNT(p2.stud_id) DESC
+        );
+
+    --4 
+    SELECT s.id, s.last_name, s.f_name, s.s_name from stud s
+    JOIN 
